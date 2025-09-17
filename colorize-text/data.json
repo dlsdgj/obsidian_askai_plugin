@@ -1,0 +1,36 @@
+{
+  "palette": [
+    {
+      "textColor": "#FFFFFF",
+      "bgColor": "#000000"
+    }
+  ],
+  "highlightHistory": {
+    "未命名.md": [
+      {
+        "text": "为东京",
+        "textColor": "#8B4513",
+        "bgColor": "#F5DEB3",
+        "time": 1757783789755
+      },
+      {
+        "text": "早苗",
+        "textColor": "#8B4513",
+        "bgColor": "#F5DEB3",
+        "time": 1757783783339
+      },
+      {
+        "text": "长翼和广翼",
+        "textColor": "#2E4057",
+        "bgColor": "#F7DC6F",
+        "time": 1757783737686
+      }
+    ]
+  },
+  "settings": {
+    "apiKey": "sk-15f046fde74249afa6fec752fdd0c38d",
+    "apiUrl": "https://api.deepseek.com/v1/chat/completions",
+    "apiName": "DeepSeek",
+    "apiModel": "deepseek-chat"
+  }
+}
