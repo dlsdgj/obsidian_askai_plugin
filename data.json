@@ -1,0 +1,43 @@
+{
+  "apis": [
+    {
+      "name": "KIMI",
+      "url": "https://api.moonshot.cn/v1/chat/completions",
+      "key": "sk-CNOzQ5qxWhDTk1F93pUFnHyzgIsCDrxzBEcRFQkRrPxW4msk",
+      "model": "moonshot-v1-32k"
+    },
+    {
+      "name": "DeepSeek",
+      "url": "https://api.deepseek.com/v1/chat/completions",
+      "key": "sk-15f046fde74249afa6fec752fdd0c38d",
+      "model": "deepseek-chat"
+    }
+  ],
+  "defaultApiIndex": 1,
+  "promptTemplates": [
+    {
+      "name": "请根据selection，按如下要求执行：",
+      "template": "请根据selection，按如下要求执行：\nselection:{{selection}}\n\n上下文：{{context}}\n\n要求：\n- 如果\"selection\"是英文单词则**仅翻译并给出其词源, 忽略其他要求**\n- 如果\"selection\"是一段英文，请分别给出直译和接地气的中文翻译,并解释其中关键词句；\n- 如果\"selection\"是中文词句段落，用大白话解释其含义；\n- 如有上下文，请结合上下文进行说明, \n**翻译仅限selection内容**。\n\n\n\n"
+    },
+    {
+      "name": "用接地气的话翻译下文: ",
+      "template": "用接地气的话翻译下文: "
+    },
+    {
+      "name": "用接地气的话转述下文: ",
+      "template": "用接地气的话转述下文: "
+    }
+  ],
+  "defaultPromptIndex": 0,
+  "defaultFontFamily": "Microsoft YaHei",
+  "floatingButtonPinned": true,
+  "middleClickShortcutKey": "c",
+  "middleClickShortcutAlt": true,
+  "middleClickShortcutCtrl": false,
+  "middleClickShortcutShift": false,
+  "middleClickShortcutMeta": false,
+  "promptTemplate": "请根据selection，按如下要求执行：selection:{{selection}}\n\n要求：\n- 如果\"selection\"是英文单词则**仅翻译并给出其词源, 忽略其他要求**\n- 如果\"selection\"是一段英文，请分别给出直译和接地气的中文翻译,并解释其中关键词句；\n- 如果\"selection\"是中文词句段落，用大白话解释其含义；\n- 如有上下文，请结合上下文进行说明, \n**翻译仅限selection内容**。\n\n上下文：{{context}}",
+  "apiKey": "sk-CNOzQ5qxWhDTk1F93pUFnHyzgIsCDrxzBEcRFQkRrPxW4msk",
+  "model": "moonshot-v1-32k",
+  "boldOnClick": true
+}
