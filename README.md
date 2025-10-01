@@ -13,14 +13,11 @@
 
 ## 安装方法
 
-<<<<<<< HEAD
 1. 在 Obsidian 中打开设置
 2. 点击 "社区插件" -> "浏览" 并搜索 "Ask AI"
 3. 点击 "安装" 按钮
 4. 安装完成后点击 "启用" 按钮
 
-=======
->>>>>>> 9b2e9befd919e6468d70a1eb1ad637fe3b9aab94
 或者通过手动安装：
 1. 下载最新的发布版本
 2. 解压到 Obsidian 的插件目录（`.obsidian/plugins/`）
@@ -118,8 +115,4 @@ MIT License
 
 感谢您使用 Ask AI 插件！如有任何问题或建议，请在 GitHub 上提交 issue。
 
-<<<<<<< HEAD
 作者：nilmarkov
-=======
-作者：nilmarkov
->>>>>>> 9b2e9befd919e6468d70a1eb1ad637fe3b9aab94

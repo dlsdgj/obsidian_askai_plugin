@@ -200,7 +200,10 @@ module.exports = class AskAiPlugin extends Plugin {
         ],
         defaultPromptIndex: 0,
         defaultFontFamily: "",
-        floatingButtonPinned: false,
+        floatingButtonPinned: true, // 默认设为常显
+        // 新增：悬浮球位置保存
+        floatingButtonX: null,
+        floatingButtonY: null,
         // 中键点击快捷键设置
         middleClickShortcutKey: "a",
         middleClickShortcutAlt: true,
@@ -210,9 +213,6 @@ module.exports = class AskAiPlugin extends Plugin {
       },
       await this.loadData()
     );
-    
-    // 确保悬浮球默认不是常显状态，无论之前的设置如何
-    this.settings.floatingButtonPinned = false;
     
     // 清理不再需要的设置项
     if (this.settings.middleClickShortcut !== undefined) {
@@ -251,65 +251,51 @@ module.exports = class AskAiPlugin extends Plugin {
   // 如果是常显状态且之前有悬浮球存在，保持悬浮球位置不变，只更新点击事件逻辑
   let currentLeft = null;
   let currentTop = null;
-  if (existingButton && this.settings.floatingButtonPinned) {
-    // 保存当前悬浮球的位置
+  
+  // 优先使用设置中保存的位置
+  if (this.settings.floatingButtonPinned && this.settings.floatingButtonX !== null && this.settings.floatingButtonY !== null) {
+    currentLeft = `${this.settings.floatingButtonX}px`;
+    currentTop = `${this.settings.floatingButtonY}px`;
+  }
+  // 如果设置中没有保存位置，但有现存的悬浮球，使用其位置
+  else if (existingButton && this.settings.floatingButtonPinned) {
     currentLeft = existingButton.style.left;
     currentTop = existingButton.style.top;
-    
-    // 创建新的悬浮球
-    button = document.createElement("button");
-    button.textContent = "🤖";
-    button.className = "ask-ai-btn";
-    button.style.position = "absolute";
-    // 使用保存的位置，而不是新选择的位置
+  }
+  
+  // 创建新的悬浮球
+  button = document.createElement("button");
+  button.textContent = "🤖";
+  button.className = "ask-ai-btn";
+  button.style.position = "absolute";
+  
+  // 如果是常显状态但没有保存的位置，则使用鼠标位置
+  if (this.settings.floatingButtonPinned && !currentLeft) {
+    // 这种情况可能出现在首次设置常显时
+    button.style.left = `${evt.pageX + 10}px`;
+    button.style.top = `${evt.pageY}px`;
+  } else if (currentLeft) {
+    // 使用保存的位置
     button.style.left = currentLeft;
     button.style.top = currentTop;
-    button.style.zIndex = "9999";
-    button.style.width = "25px";
-    button.style.height = "25px";
-    button.style.fontSize = "1em";
-    button.style.borderRadius = "12.5px";
-    button.style.cursor = this.settings.floatingButtonPinned ? "move" : "pointer";
-    
-    // 如果设置了常显，添加标识样式
-    if (this.settings.floatingButtonPinned) {
-      button.style.border = "2px solid var(--interactive-accent)";
-      button.style.boxShadow = "0 0 8px rgba(66, 153, 225, 0.5)";
-    }
   } else {
-    // 创建新的悬浮球
-    button = document.createElement("button");
-    button.textContent = "🤖";
-    button.className = "ask-ai-btn";
-    button.style.position = "absolute";
-    // 如果是常显状态但没有保存的位置，则使用鼠标位置
-    if (this.settings.floatingButtonPinned && !currentLeft) {
-      // 这种情况可能出现在首次设置常显时
-      button.style.left = `${evt.pageX + 10}px`;
-      button.style.top = `${evt.pageY}px`;
-    } else if (currentLeft) {
-      // 使用保存的位置
-      button.style.left = currentLeft;
-      button.style.top = currentTop;
-    } else {
-      // 正常情况下使用鼠标位置
-  // 添加小的随机偏移量，避免悬浮球正好出现在鼠标光标下方导致的躲闪效果
-  const randomOffsetX = Math.random() * 5 + 5; // 5-10px的随机偏移
-  button.style.left = `${evt.pageX + randomOffsetX}px`;
-  button.style.top = `${evt.pageY}px`;
-    }
-    button.style.zIndex = "9999";
-    button.style.width = "25px";
-    button.style.height = "25px";
-    button.style.fontSize = "1em";
-    button.style.borderRadius = "12.5px";
-    button.style.cursor = this.settings.floatingButtonPinned ? "move" : "pointer";
-    
-    // 如果设置了常显，添加标识样式
-    if (this.settings.floatingButtonPinned) {
-      button.style.border = "2px solid var(--interactive-accent)";
-      button.style.boxShadow = "0 0 8px rgba(66, 153, 225, 0.5)";
-    }
+    // 正常情况下使用鼠标位置
+    // 添加小的随机偏移量，避免悬浮球正好出现在鼠标光标下方导致的躲闪效果
+    const randomOffsetX = Math.random() * 5 + 5; // 5-10px的随机偏移
+    button.style.left = `${evt.pageX + randomOffsetX}px`;
+    button.style.top = `${evt.pageY}px`;
+  }
+  button.style.zIndex = "9999";
+  button.style.width = "25px";
+  button.style.height = "25px";
+  button.style.fontSize = "1em";
+  button.style.borderRadius = "12.5px";
+  button.style.cursor = this.settings.floatingButtonPinned ? "move" : "pointer";
+  
+  // 如果设置了常显，添加标识样式
+  if (this.settings.floatingButtonPinned) {
+    button.style.border = "2px solid var(--interactive-accent)";
+    button.style.boxShadow = "0 0 8px rgba(66, 153, 225, 0.5)";
   }
   
   document.body.appendChild(button);
@@ -537,6 +523,15 @@ module.exports = class AskAiPlugin extends Plugin {
       if (isDragging) {
         isDragging = false;
         button.style.zIndex = "9999";
+        
+        // 如果是常显状态，保存悬浮球的位置
+        if (this.settings.floatingButtonPinned) {
+          const rect = button.getBoundingClientRect();
+          this.settings.floatingButtonX = rect.left;
+          this.settings.floatingButtonY = rect.top;
+          this.saveSettings();
+        }
+        
         // 使用setTimeout确保点击事件不会被触发
         setTimeout(() => {
           hasDragged = false;
@@ -1151,6 +1146,59 @@ module.exports = class AskAiPlugin extends Plugin {
         clearTimeout(menuTimeout);
       };
       menu.appendChild(clearFormatItem);
+
+      // 降低标题层级选项
+      const decreaseHeadingLevelItem = document.createElement("div");
+      decreaseHeadingLevelItem.textContent = "降低标题层级";
+      decreaseHeadingLevelItem.style.padding = "4px 8px";
+      decreaseHeadingLevelItem.style.cursor = "pointer";
+      decreaseHeadingLevelItem.style.borderBottom = "1px solid #eee";
+      decreaseHeadingLevelItem.onmouseenter = () => decreaseHeadingLevelItem.style.background = "var(--background-modifier-hover)";
+      decreaseHeadingLevelItem.onmouseleave = () => decreaseHeadingLevelItem.style.background = "transparent";
+      decreaseHeadingLevelItem.onclick = (e) => {
+        // 阻止事件冒泡，防止触发外部点击事件监听器
+        e.stopPropagation();
+        if (editor) {
+          const sel = editor.getSelection();
+          if (sel) {
+            // 保存原始选区起点偏移
+            const fromPos = editor.getCursor('from');
+            const fromIdx = editor.posToOffset(fromPos);
+
+            // 从最低层级开始执行，将标题层级下降一级
+            // 先按行拆分
+            const lines = sel.split('\n');
+            // 从最低层级开始处理，防止处理顺序问题
+            const processedLines = lines.map(line => {
+              // 匹配以1-5个#开头的标题行
+              const headingMatch = line.match(/^(#{1,5})\s+(.*)$/);
+              if (headingMatch) {
+                // 获取#部分和标题内容
+                const hashes = headingMatch[1];
+                const content = headingMatch[2];
+                // 增加一个#，将标题层级下降一级
+                return '#' + hashes + ' ' + content;
+              }
+              return line;
+            });
+            // 重新组合文本
+            const resultText = processedLines.join('\n');
+
+            // 替换为处理后的文本
+            editor.replaceSelection(resultText);
+
+            // 新的选区范围
+            const newFrom = editor.offsetToPos(fromIdx);
+            const newTo = editor.offsetToPos(fromIdx + resultText.length);
+
+            editor.setSelection(newFrom, newTo);
+            editor.focus();
+          }
+        }
+        // 确保菜单项点击后菜单仍然保持打开状态
+        clearTimeout(menuTimeout);
+      };
+      menu.appendChild(decreaseHeadingLevelItem);
 
       // 悬浮球常显选项
       const divider = document.createElement("hr");
