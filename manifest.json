@@ -1,7 +1,7 @@
 {
   "id": "ask-ai",
   "name": "Ask AI",
-  "version": "1.0.1",
+  "version": "1.2.1",
   "minAppVersion": "0.15.0",
   "description": "在 Obsidian 中选中文本并调用 AI API 返回结果",
   "author": "nilmarkov",

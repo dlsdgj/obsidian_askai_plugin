@@ -209,7 +209,19 @@ module.exports = class AskAiPlugin extends Plugin {
         middleClickShortcutAlt: true,
         middleClickShortcutCtrl: false,
         middleClickShortcutShift: false,
-        middleClickShortcutMeta: false
+        middleClickShortcutMeta: false,
+        
+        // 自定义快捷键设置
+        customShortcutName: "自定义快捷键",
+        customShortcutKey: "b",
+        customShortcutAlt: false,
+        customShortcutCtrl: true,
+        customShortcutShift: false,
+        customShortcutMeta: false,
+        
+        // 自定义文本设置
+        customTextName: "自定义文本",
+        customTextContent: ">[!{{selection}}]\n"
       },
       await this.loadData()
     );
@@ -1200,6 +1212,75 @@ module.exports = class AskAiPlugin extends Plugin {
       };
       menu.appendChild(decreaseHeadingLevelItem);
 
+      // 自定义快捷键选项
+      const customShortcutItem = document.createElement("div");
+      customShortcutItem.textContent = this.settings.customShortcutName || "自定义快捷键";
+      customShortcutItem.style.padding = "4px 8px";
+      customShortcutItem.style.cursor = "pointer";
+      customShortcutItem.style.borderBottom = "1px solid #eee";
+      customShortcutItem.onmouseenter = () => customShortcutItem.style.background = "var(--background-modifier-hover)";
+      customShortcutItem.onmouseleave = () => customShortcutItem.style.background = "transparent";
+      customShortcutItem.onclick = (e) => {
+        // 阻止事件冒泡，防止触发外部点击事件监听器
+        e.stopPropagation();
+        
+        // 执行自定义快捷键
+        try {
+          const modifiers = [];
+          if (this.settings.customShortcutAlt) modifiers.push('Alt');
+          if (this.settings.customShortcutCtrl) modifiers.push('Control');
+          if (this.settings.customShortcutShift) modifiers.push('Shift');
+          if (this.settings.customShortcutMeta) modifiers.push('Meta');
+          
+          const key = this.settings.customShortcutKey || 'b';
+          
+          // 模拟按键事件
+          const activeElement = document.activeElement;
+          const textareaElement = activeElement instanceof HTMLTextAreaElement || activeElement instanceof HTMLInputElement ? activeElement : document.body;
+          
+          // 模拟 keydown 事件
+          const keydownEvent = new KeyboardEvent('keydown', {
+            key: key,
+            code: `Key${key.toUpperCase()}`,
+            altKey: this.settings.customShortcutAlt,
+            ctrlKey: this.settings.customShortcutCtrl,
+            shiftKey: this.settings.customShortcutShift,
+            metaKey: this.settings.customShortcutMeta,
+            bubbles: true,
+            cancelable: true,
+            view: window
+          });
+          
+          // 模拟 keyup 事件
+          const keyupEvent = new KeyboardEvent('keyup', {
+            key: key,
+            code: `Key${key.toUpperCase()}`,
+            altKey: this.settings.customShortcutAlt,
+            ctrlKey: this.settings.customShortcutCtrl,
+            shiftKey: this.settings.customShortcutShift,
+            metaKey: this.settings.customShortcutMeta,
+            bubbles: true,
+            cancelable: true,
+            view: window
+          });
+          
+          // 分发事件
+          textareaElement.dispatchEvent(keydownEvent);
+          setTimeout(() => {
+            textareaElement.dispatchEvent(keyupEvent);
+          }, 50);
+          
+          console.log(`执行自定义快捷键: ${modifiers.join('+')}+${key}`);
+        } catch (err) {
+          console.error('执行自定义快捷键错误:', err);
+          new Notice('执行自定义快捷键时出错，请查看控制台。');
+        }
+        
+        // 确保菜单项点击后菜单仍然保持打开状态
+        clearTimeout(menuTimeout);
+      };
+      menu.appendChild(customShortcutItem);
+
       // 悬浮球常显选项
       const divider = document.createElement("hr");
       divider.style.margin = "4px 0";
@@ -1611,9 +1692,9 @@ class AskModal extends Modal {
     fontIncBtn.style.marginRight = "8px";
     formatBtnRow.appendChild(fontIncBtn);
 
-    // 插入 >[!]按钮
+    // 插入自定义文本按钮
     const insertBtn = document.createElement("button");
-    insertBtn.textContent = ">[!]";
+    insertBtn.textContent = this.plugin?.settings?.customTextName || "自定义文本";
     insertBtn.style.padding = "4px 8px";
     insertBtn.style.fontSize = "0.8em";
     insertBtn.style.marginRight = "8px";
@@ -1622,7 +1703,10 @@ class AskModal extends Modal {
       if (selectedText.length > 10) {
         selectedText = selectedText.slice(0, 10) + "...";
       }
-      this.textarea.value = `>[!${selectedText}]\n` + this.textarea.value;
+      // 获取自定义文本内容并替换占位符
+      let customText = this.plugin?.settings?.customTextContent || ">[!{{selection}}]\n";
+      customText = customText.replace(/{{selection}}/g, selectedText);
+      this.textarea.value = customText + this.textarea.value;
     };
     formatBtnRow.appendChild(insertBtn);
 
@@ -2262,6 +2346,132 @@ class AskAiSettingTab extends PluginSettingTab {
     containerEl.querySelector(".setting-item:last-child").style.backgroundColor = "var(--background-secondary)";
     containerEl.querySelector(".setting-item:last-child").style.whiteSpace = "pre-line";
     containerEl.querySelector(".setting-item:last-child").style.marginBottom = "16px";
+
+    // 自定义快捷键设置行
+    const customShortcutRowContainer = containerEl.createDiv("setting-item");
+    customShortcutRowContainer.style.display = "flex";
+    customShortcutRowContainer.style.flexWrap = "wrap";
+    customShortcutRowContainer.style.alignItems = "center";
+    customShortcutRowContainer.style.gap = "12px";
+    customShortcutRowContainer.style.padding = "8px 0";
+    
+    // 标题
+    customShortcutRowContainer.createEl("div", { text: "快捷键名称:", cls: "setting-item-name" });
+    
+    // 名称输入框
+    const customNameInput = customShortcutRowContainer.createEl("input", { type: "text", value: this.plugin.settings.customShortcutName || "自定义快捷键" });
+    customNameInput.style.width = "150px";
+    customNameInput.style.padding = "4px 8px";
+    customNameInput.style.borderRadius = "4px";
+    customNameInput.style.border = "1px solid var(--background-modifier-border)";
+    customNameInput.style.backgroundColor = "var(--background-secondary)";
+    customNameInput.style.color = "var(--text-normal)";
+    customNameInput.addEventListener("change", async (e) => {
+      this.plugin.settings.customShortcutName = e.target.value || "自定义快捷键";
+      await this.plugin.saveSettings();
+    });
+    
+    // 创建自定义快捷键的修饰键开关（带容器参数）
+    const createCustomModifierToggle = (name, settingKey) => {
+      const toggleContainer = customShortcutRowContainer.createDiv();
+      toggleContainer.style.display = "flex";
+      toggleContainer.style.alignItems = "center";
+      toggleContainer.style.gap = "6px";
+      
+      toggleContainer.createEl("span", { text: name });
+      const toggle = toggleContainer.createEl("input", { type: "checkbox" });
+      toggle.checked = this.plugin.settings[settingKey] === true;
+      toggle.style.cursor = "pointer";
+      toggle.addEventListener("change", async (e) => {
+        this.plugin.settings[settingKey] = e.target.checked;
+        await this.plugin.saveSettings();
+      });
+    };
+    
+    // 创建自定义快捷键的修饰键开关
+    createCustomModifierToggle("Alt", "customShortcutAlt");
+    createCustomModifierToggle("Ctrl", "customShortcutCtrl");
+    createCustomModifierToggle("Shift", "customShortcutShift");
+    createCustomModifierToggle("Win", "customShortcutMeta");
+    
+    // 主要按键设置
+    const customKeyInput = customShortcutRowContainer.createEl("input", { type: "text", value: this.plugin.settings.customShortcutKey || "b" });
+    customKeyInput.style.width = "60px";
+    customKeyInput.style.padding = "4px 8px";
+    customKeyInput.style.borderRadius = "4px";
+    customKeyInput.style.border = "1px solid var(--background-modifier-border)";
+    customKeyInput.style.backgroundColor = "var(--background-secondary)";
+    customKeyInput.style.color = "var(--text-normal)";
+    customKeyInput.maxLength = 1;
+    customKeyInput.addEventListener("change", async (e) => {
+      const value = e.target.value;
+      // 仅允许单个字母或数字
+      if (value && value.length === 1 && /[a-zA-Z0-9]/.test(value)) {
+        this.plugin.settings.customShortcutKey = value.toLowerCase();
+        await this.plugin.saveSettings();
+      } else if (value === "") {
+        this.plugin.settings.customShortcutKey = "b";
+        await this.plugin.saveSettings();
+        customKeyInput.value = "b";
+      } else {
+        customKeyInput.value = this.plugin.settings.customShortcutKey || "b";
+      }
+    });
+    
+    // 功能说明
+    containerEl.createEl("div", {
+      text: "💡 悬浮球菜单中将显示您设置的自定义快捷键名称，点击后执行配置的快捷键组合。",
+      cls: "setting-item"
+    });
+    containerEl.querySelector(".setting-item:last-child").style.padding = "12px";
+    containerEl.querySelector(".setting-item:last-child").style.borderRadius = "8px";
+    containerEl.querySelector(".setting-item:last-child").style.backgroundColor = "var(--background-secondary)";
+    containerEl.querySelector(".setting-item:last-child").style.whiteSpace = "pre-line";
+    containerEl.querySelector(".setting-item:last-child").style.marginBottom = "16px";
+    
+    // 自定义文本设置
+    containerEl.createEl("h3", { text: "📝 自定义文本设置" });
+    
+    // 自定义文本名称设置
+    new Setting(containerEl)
+      .setName("按钮显示文本")
+      .setDesc("设置插入自定义文本按钮的显示名称")
+      .addText(text => {
+        text.setValue(this.plugin.settings.customTextName || "自定义文本");
+        text.onChange(async (value) => {
+          this.plugin.settings.customTextName = value || "自定义文本";
+          await this.plugin.saveSettings();
+        });
+      });
+    
+    // 自定义文本内容设置
+    const customTextContainer = containerEl.createDiv("setting-item");
+    customTextContainer.style.marginBottom = "20px";
+    customTextContainer.createEl("div", {
+      text: "自定义插入内容",
+      cls: "setting-item-name"
+    });
+    customTextContainer.createEl("div", {
+      text: "设置点击按钮时插入的文本内容，可使用 {{selection}} 代表选中的文本",
+      cls: "setting-item-description"
+    });
+    const customTextTextarea = customTextContainer.createEl("textarea");
+    customTextTextarea.value = this.plugin.settings.customTextContent || ">[!{{selection}}]\n";
+    customTextTextarea.style.width = "100%";
+    customTextTextarea.style.minHeight = "80px";
+    customTextTextarea.style.marginTop = "8px";
+    customTextTextarea.style.padding = "8px";
+    customTextTextarea.style.borderRadius = "4px";
+    customTextTextarea.style.border = "1px solid var(--background-modifier-border)";
+    customTextTextarea.style.backgroundColor = "var(--background-secondary)";
+    customTextTextarea.style.color = "var(--text-normal)";
+    customTextTextarea.style.fontFamily = "var(--font-mono)";
+    customTextTextarea.style.resize = "vertical";
+    
+    customTextTextarea.addEventListener("change", async (e) => {
+      this.plugin.settings.customTextContent = e.target.value || ">[!{{selection}}]\n";
+      await this.plugin.saveSettings();
+    });
 
     // 每个 API 用卡片包装
     this.plugin.settings.apis.forEach((api, index) => {
