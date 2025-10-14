@@ -170,68 +170,6 @@ module.exports = class AskAiPlugin extends Plugin {
 
     // 初始设置监听器
     setupSelectionListener();
-
-    // 自动化模式键盘事件监听器
-    this.autoModeKeyboardListener = (e) => {
-      // 检查是否按下了正确的修饰键和主要按键
-      const altKey = e.altKey === this.settings.autoModeShortcutAlt;
-      const ctrlKey = e.ctrlKey === this.settings.autoModeShortcutCtrl;
-      const shiftKey = e.shiftKey === this.settings.autoModeShortcutShift;
-      const metaKey = e.metaKey === this.settings.autoModeShortcutMeta;
-      const key = e.key.toLowerCase() === this.settings.autoModeShortcutKey.toLowerCase();
-
-      // 如果所有条件都满足
-      if (altKey && ctrlKey && shiftKey && metaKey && key) {
-        e.preventDefault();
-        e.stopPropagation();
-
-        // 获取当前编辑器
-        const activeLeaf = this.app.workspace.getActiveViewOfType(MarkdownView);
-        if (activeLeaf?.editor) {
-          const editor = activeLeaf.editor;
-          
-          // 尝试获取选中文本
-          let selectedText = editor.getSelection();
-          
-          // 如果没有获取到选中文本，尝试使用window.getSelection作为后备
-          if (!selectedText) {
-            const windowSelection = window.getSelection();
-            if (windowSelection && !windowSelection.isCollapsed && windowSelection.toString().trim()) {
-              selectedText = windowSelection.toString().trim();
-            }
-          }
-
-          if (selectedText) {
-            // 创建一个自动模式专用的模态框
-            const autoModal = new AskModal(this.app, this, selectedText, editor);
-            autoModal._autoMode = true; // 标记为自动模式
-            autoModal.open();
-            
-            // 模拟自动发送请求
-            setTimeout(() => {
-              if (autoModal.inputField) {
-                // 使用默认模板或第一个模板
-                const apiIndex = autoModal.apiIndex ?? this.settings.defaultApiIndex ?? 0;
-                const api = this.settings.apis[apiIndex];
-                
-                if (api) {
-                  // 执行默认模板或者用户设置的模板
-                  const promptTemplate = this.settings.promptTemplates[this.settings.defaultPromptIndex]?.template || '';
-                  const prompt = promptTemplate.replace(/{{selection}}/g, selectedText);
-                  
-                  autoModal.inputField.value = prompt;
-                  autoModal.continueBtn?.click();
-                }
-              }
-            }, 100);
-          } else {
-            new Notice("没有选中文字");
-          }
-        }
-      }
-    };
-
-    document.addEventListener('keydown', this.autoModeKeyboardListener);
   }
 
   onunload() {
@@ -239,7 +177,6 @@ module.exports = class AskAiPlugin extends Plugin {
     
     // 清理全局事件监听器，避免内存泄漏
     document.removeEventListener('selectionchange', this.globalSelectionChangeListener);
-    document.removeEventListener('keydown', this.autoModeKeyboardListener);
     document.removeEventListener('mousemove', this.mousePositionListener);
     document.removeEventListener('mousedown', this.mouseDownListener);
     document.removeEventListener('mouseup', this.mouseUpListener);
@@ -284,15 +221,7 @@ module.exports = class AskAiPlugin extends Plugin {
         
         // 自定义文本设置
         customTextName: "自定义文本",
-        customTextContent: ">![{{selection}}]\n",
-        
-        // 自动化模式设置
-        autoModeShortcutKey: "a",
-        autoModeShortcutAlt: true,
-        autoModeShortcutCtrl: true,
-        autoModeShortcutShift: true,
-        autoModeShortcutMeta: false,
-        autoModeScript: "// 自动化脚本示例\nsleep(1000)\ninsertCustomText()\nclearFormat()\n// copy()\ncloseModal()"
+        customTextContent: ">[!{{selection}}]\n"
       },
       await this.loadData()
     );
@@ -994,10 +923,7 @@ module.exports = class AskAiPlugin extends Plugin {
         templateSubMenu.style.padding = "4px";
         templateSubMenu.style.borderRadius = "6px";
         templateSubMenu.style.zIndex = "10001";
-      templateSubMenu.style.minWidth = "200px";
-      templateSubMenu.style.maxWidth = "300px"; // 限制最大宽度
-      templateSubMenu.style.whiteSpace = "normal"; // 允许文本自动换行
-      templateSubMenu.style.wordWrap = "break-word"; // 允许单词内换行
+        templateSubMenu.style.minWidth = "200px";
         
         // 先将二级菜单添加到DOM，以便获取其尺寸
         document.body.appendChild(templateSubMenu);
@@ -1012,12 +938,6 @@ module.exports = class AskAiPlugin extends Plugin {
           templateItem.style.cursor = "pointer";
           templateItem.style.borderBottom = "1px solid #eee";
           
-          // 检查是否为默认提示词，如果是则设置墨绿色
-          if (this.settings.defaultPromptIndex === index) {
-            templateItem.style.color = "#006400"; // 墨绿色
-            templateItem.style.fontWeight = "bold";
-          }
-          
           // 鼠标悬停效果
           templateItem.onmouseenter = () => {
             templateItem.style.background = "var(--background-modifier-hover)";
@@ -1030,20 +950,6 @@ module.exports = class AskAiPlugin extends Plugin {
           templateItem.onclick = (e) => {
               // 阻止事件冒泡，防止触发外部点击事件监听器
               e.stopPropagation();
-          };
-          
-          // 右键点击直接设置为默认提示词
-          templateItem.oncontextmenu = async (e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            
-            // 更新默认提示词索引
-            this.settings.defaultPromptIndex = index;
-            await this.saveSettings();
-            
-            // 重新显示二级菜单，以便更新样式
-            hideTemplateSubMenu();
-            showTemplateSubMenu();
           };
           
           templateSubMenu.appendChild(templateItem);
@@ -1118,8 +1024,6 @@ module.exports = class AskAiPlugin extends Plugin {
           templateSubMenu = null;
         }
       };
-      
-
 
       // 移除HTML标签选项
       const removeHtmlTagsItem = document.createElement("div");
@@ -1698,27 +1602,23 @@ class AskModal extends Modal {
         const selectedTemplate = this.plugin.settings.promptTemplates[selectedIndex];
         console.log("Selected prompt template:", selectedTemplate.name);
         
-        // 如果是编辑模式，在文本末尾添加模板内容
-      if (this._editMode && this.inputField) {
-        // 替换模板中的变量
-        let processedTemplate = selectedTemplate.template;
-        if (this.query) {
-          processedTemplate = processedTemplate.replace(/{{selection}}/g, this.query);
-        }
-        if (this.context) {
-          processedTemplate = processedTemplate.replace(/{{context}}/g, this.context);
-        }
-        
-        // 获取当前输入框内容
-        const currentValue = this.inputField.value;
-        
-        // 在文本末尾添加模板内容
-        this.inputField.value = currentValue + processedTemplate;
-        
-        // 重新聚焦并设置光标位置到文本末尾
-        this.inputField.focus();
-        const newCursorPos = this.inputField.value.length;
-        this.inputField.setSelectionRange(newCursorPos, newCursorPos);
+        // 如果是编辑模式，将模板插入到输入框开头
+        if (this._editMode && this.inputField) {
+          // 替换模板中的变量
+          let processedTemplate = selectedTemplate.template;
+          if (this.query) {
+            processedTemplate = processedTemplate.replace(/{{selection}}/g, this.query);
+          }
+          if (this.context) {
+            processedTemplate = processedTemplate.replace(/{{context}}/g, this.context);
+          }
+          
+          // 将模板插入到输入框开头，不添加空行
+          const currentValue = this.inputField.value;
+          this.inputField.value = processedTemplate + (currentValue ? currentValue : '');
+          this.inputField.focus();
+          // 设置光标位置到插入点后面
+          this.inputField.setSelectionRange(processedTemplate.length, processedTemplate.length);
           
           // 确保视图固定在光标位置，不跳到文本末尾
           // 在下一个事件循环中操作，确保DOM已更新
@@ -1806,21 +1706,7 @@ class AskModal extends Modal {
       // 获取自定义文本内容并替换占位符
       let customText = this.plugin?.settings?.customTextContent || ">[!{{selection}}]\n";
       customText = customText.replace(/{{selection}}/g, selectedText);
-      
-      // 添加对{{modelname}}变量的支持
-      let modelName = "";
-      if (this.plugin?.settings?.apis && this.plugin?.settings?.apis.length > 0) {
-        // 使用当前选择的API（通过悬浮球菜单选择的），如果没有选择则使用默认API
-        const apiIndex = this.apiIndex ?? this.plugin.settings.defaultApiIndex ?? 0;
-        const selectedApi = this.plugin.settings.apis[apiIndex];
-        modelName = selectedApi?.model || selectedApi?.name || "";
-      }
-      customText = customText.replace(/{{modelname}}/g, modelName);
-      
-      // 在文本区域开头添加自定义文本
       this.textarea.value = customText + this.textarea.value;
-      // 滚动到文本区域顶部，确保用户能看到新添加的内容
-      this.textarea.scrollTop = 0;
     };
     formatBtnRow.appendChild(insertBtn);
 
@@ -1874,101 +1760,6 @@ class AskModal extends Modal {
       }
     };
     formatBtnRow.appendChild(copyBtn);
-
-    // 插入到编辑器按钮
-    const insertToEditorBtn = document.createElement("button");
-    insertToEditorBtn.textContent = "插入";
-    insertToEditorBtn.style.padding = "4px 8px";
-    insertToEditorBtn.style.fontSize = "0.8em";
-    insertToEditorBtn.style.marginRight = "8px";
-    insertToEditorBtn.onclick = () => {
-      const textToInsert = this.textarea.value;
-      if (!textToInsert.trim()) {
-        return;
-      }
-      
-      // 获取当前编辑器
-      const activeView = this.app.workspace.getActiveViewOfType(MarkdownView);
-      if (activeView?.editor) {
-        const editor = activeView.editor;
-        
-        try {
-          // 优先检查是否有选中文本
-          const selectedText = editor.getSelection();
-          if (selectedText && selectedText.trim()) {
-            // 如果有选中文本，获取选中文本的结束位置
-            const endPos = editor.getCursor('to');
-            
-            // 在选中文本后面插入内容，另起一行
-            editor.replaceRange("\n" + textToInsert, endPos);
-          } else {
-            // 如果没有选中文本，获取当前光标位置
-            const cursor = editor.getCursor();
-            
-            // 在光标位置插入内容，另起一行
-            editor.replaceRange("\n" + textToInsert, cursor);
-          }
-          
-          // 显示成功提示
-          insertToEditorBtn.textContent = "已插入";
-          setTimeout(() => { insertToEditorBtn.textContent = "插入"; }, 1200);
-        } catch (error) {
-          console.error("插入内容失败:", error);
-          // 备用方案：如果获取光标位置失败，则在文档末尾添加内容
-          const lastLine = editor.lineCount() - 1;
-          const lastLineEnd = editor.getLine(lastLine).length;
-          editor.replaceRange("\n" + textToInsert, { line: lastLine, ch: lastLineEnd });
-          
-          insertToEditorBtn.textContent = "已添加到末尾";
-          setTimeout(() => { insertToEditorBtn.textContent = "插入"; }, 1200);
-        }
-      }
-    };
-    formatBtnRow.appendChild(insertToEditorBtn);
-
-    // 保存为文件按钮
-    const saveBtn = document.createElement("button");
-    saveBtn.textContent = "保存";
-    saveBtn.style.padding = "4px 8px";
-    saveBtn.style.fontSize = "0.8em";
-    saveBtn.style.marginRight = "8px";
-    saveBtn.onclick = async () => {
-      const text = this.textarea.value;
-      if (!text.trim()) {
-        return;
-      }
-      
-      // 提取第一行或第二行作为标题
-      const lines = text.trim().split('\n');
-      let title = "AI回答";
-      // 找到第一个非空行作为标题
-      for (let i = 0; i < Math.min(lines.length, 2); i++) {
-        const line = lines[i].trim();
-        if (line) {
-          // 移除Markdown标记
-          title = line.replace(/^[#*>-]+\s*/, '').replace(/[*_`~]+/g, '');
-          // 限制标题长度
-          title = title.substring(0, 50);
-          break;
-        }
-      }
-      
-      // 生成安全的文件名
-      const safeTitle = title.replace(/[\\/:*?"<>|]/g, '').replace(/\s+/g, '_');
-      const fileName = safeTitle + ".md";
-      
-      try {
-        // 使用Obsidian API保存文件到库的根目录
-        await this.app.vault.create(fileName, text);
-        saveBtn.textContent = "已保存";
-        setTimeout(() => { saveBtn.textContent = "保存"; }, 1200);
-      } catch (err) {
-        console.error("保存文件失败:", err);
-        saveBtn.textContent = "失败";
-        setTimeout(() => { saveBtn.textContent = "保存"; }, 1200);
-      }
-    };
-    formatBtnRow.appendChild(saveBtn);
 
     // 字体大小调整逻辑
     let fontSize = 14;
@@ -2097,14 +1888,7 @@ class AskModal extends Modal {
         await this.streamApi(this.messages, api, this.textarea, header, this.query, this.editor, false);
       } catch (err) {
         header.setText("❌ 请求失败");
-        // 使用更安全的方式更新textarea内容，确保不会覆盖用户编辑的内容
-        const errorMessage = err.message || String(err);
-        // 如果textarea为空，直接设置错误信息；否则追加错误信息
-        if (!this.textarea.value.trim()) {
-          this.textarea.value = errorMessage;
-        } else {
-          this.textarea.value += "\n\n" + errorMessage;
-        }
+        this.textarea.value = err.message || String(err);
       }
     }
   }
@@ -2113,35 +1897,6 @@ class AskModal extends Modal {
     if (!api || !api.key || !api.url) {
       outputEl.value += "\n❌ API 没有配置完整";
       return;
-    }
-
-    // 性能检测：记录请求开始时间
-    const performanceStart = performance.now();
-    console.log(`🚀 [${api.name}] API请求开始`, {
-      api: api.name,
-      model: api.model,
-      url: api.url,
-      timestamp: new Date().toISOString(),
-      messagesCount: messages.length
-    });
-
-    // 添加请求延迟以避免429错误（特别是智谱API）
-    if (api.name === "智谱") {
-      const delayStart = performance.now();
-      await new Promise(resolve => setTimeout(resolve, 2000)); // 智谱API延迟2秒
-      const delayEnd = performance.now();
-      console.log(`⏱️ [${api.name}] 请求延迟耗时`, {
-        delay: `${(delayEnd - delayStart).toFixed(2)}ms`,
-        expectedDelay: '2000ms'
-      });
-    } else {
-      const delayStart = performance.now();
-      await new Promise(resolve => setTimeout(resolve, 500)); // 其他API延迟0.5秒
-      const delayEnd = performance.now();
-      console.log(`⏱️ [${api.name}] 请求延迟耗时`, {
-        delay: `${(delayEnd - delayStart).toFixed(2)}ms`,
-        expectedDelay: '500ms'
-      });
     }
 
     this.abortController = new AbortController();
@@ -2184,15 +1939,6 @@ class AskModal extends Modal {
       newMessages = [...messages];
     }
 
-    // 性能检测：记录网络请求开始时间
-    const fetchStart = performance.now();
-    console.log(`🌐 [${api.name}] 发送网络请求`, {
-      url: api.url,
-      model: api.model || (api.name === "智谱" ? "glm-4-airx" : "moonshot-v1-32k"),
-      messagesLength: JSON.stringify(newMessages).length,
-      requestSize: `${Math.round(JSON.stringify(newMessages).length / 1024)}KB`
-    });
-
     const resp = await fetch(api.url, {
       method: "POST",
       headers: {
@@ -2200,86 +1946,28 @@ class AskModal extends Modal {
         Authorization: "Bearer " + api.key,
       },
       body: JSON.stringify({
-        model: api.model || (api.name === "智谱" ? "glm-4-airx" : "moonshot-v1-32k"),
+        model: api.model || "moonshot-v1-32k",
         stream: true,
         messages: newMessages,
       }),
       signal: this.abortController.signal,
     });
 
-    const fetchEnd = performance.now();
-    const fetchTime = fetchEnd - fetchStart;
-    
-    console.log(`📡 [${api.name}] 网络请求完成`, {
-      fetchTime: `${fetchTime.toFixed(2)}ms`,
-      status: resp.status,
-      statusText: resp.statusText,
-      headers: {
-        contentType: resp.headers.get('content-type'),
-        server: resp.headers.get('server'),
-        date: resp.headers.get('date')
-      }
-    });
-
     if (!resp.ok || !resp.body) {
-      console.error(`❌ [${api.name}] 请求失败`, {
-        status: resp.status,
-        statusText: resp.statusText,
-        url: api.url,
-        fetchTime: `${fetchTime.toFixed(2)}ms`
-      });
       throw new Error(`HTTP 错误: ${resp.status}`);
     }
 
     headerEl.setText("AI 回答：");
 
-    // 性能检测：记录流式响应开始时间
-    const streamStart = performance.now();
-    console.log(`📡 [${api.name}] 开始流式响应`, {
-      timeSinceRequestStart: `${(streamStart - performanceStart).toFixed(2)}ms`,
-      timeSinceFetchComplete: `${(streamStart - fetchEnd).toFixed(2)}ms`
-    });
-
     const reader = resp.body.getReader();
     const decoder = new TextDecoder("utf-8");
     let buffer = "";
     let fullAnswer = "";
-    let firstChunkTime = null;
-    let chunkCount = 0;
-    let totalBytes = 0;
 
     while (true) {
-      const chunkStart = performance.now();
       const { done, value } = await reader.read();
-      
-      if (done) {
-        const streamEnd = performance.now();
-        const totalStreamTime = streamEnd - streamStart;
-        console.log(`🏁 [${api.name}] 流式响应结束`, {
-          totalStreamTime: `${totalStreamTime.toFixed(2)}ms`,
-          totalChunks: chunkCount,
-          totalBytes: totalBytes,
-          averageChunkTime: chunkCount > 0 ? `${(totalStreamTime / chunkCount).toFixed(2)}ms` : 'N/A',
-          finalAnswerLength: fullAnswer.length,
-          totalTime: `${(streamEnd - performanceStart).toFixed(2)}ms`
-        });
-        break;
-      }
-      
-      // 记录第一个数据块的时间
-      if (!firstChunkTime) {
-        firstChunkTime = chunkStart;
-        const firstChunkDelay = firstChunkTime - streamStart;
-        console.log(`⚡ [${api.name}] 首个数据块到达`, {
-          firstChunkDelay: `${firstChunkDelay.toFixed(2)}ms`,
-          timeSinceRequestStart: `${(firstChunkTime - performanceStart).toFixed(2)}ms`,
-          chunkSize: value.length
-        });
-      }
-      
+      if (done) break;
       buffer += decoder.decode(value, { stream: true });
-      totalBytes += value.length;
-      chunkCount++;
 
       const parts = buffer.split("\n\n");
       buffer = parts.pop();
@@ -2288,77 +1976,18 @@ class AskModal extends Modal {
         if (part.startsWith("data: ")) {
           const data = part.slice(6).trim();
           if (data === "[DONE]") {
-            const streamEnd = performance.now();
-            const totalStreamTime = streamEnd - streamStart;
-            console.log(`🏁 [${api.name}] 流式响应完成`, {
-              totalStreamTime: `${totalStreamTime.toFixed(2)}ms`,
-              totalChunks: chunkCount,
-              totalBytes: totalBytes,
-              averageChunkTime: chunkCount > 0 ? `${(totalStreamTime / chunkCount).toFixed(2)}ms` : 'N/A',
-              finalAnswerLength: fullAnswer.length,
-              totalTime: `${(streamEnd - performanceStart).toFixed(2)}ms`
-            });
-            
             this.messages.push({ role: "assistant", content: fullAnswer });
-            
-            // 检查是否启用了自动化模式
-            if (this._autoMode && this.plugin.settings.autoModeScript) {
-              // 延迟执行脚本，确保所有内容都已经显示在界面上
-              setTimeout(() => {
-                this.executeAutoModeScript();
-              }, 100);
-            }
-            
             return;
           }
           try {
             const json = JSON.parse(data);
             const delta = json.choices?.[0]?.delta?.content;
-            
-            // 智谱API特殊分析：检测空数据块
-            if (api.name === "智谱") {
-              if (chunkCount <= 50) { // 前50个数据块详细分析
-                console.log(`🔍 [${api.name}] 数据块#${chunkCount}分析`, {
-                  hasDelta: !!delta,
-                  deltaLength: delta ? delta.length : 0,
-                  deltaContent: delta ? JSON.stringify(delta) : 'null',
-                  rawChoices: json.choices ? 'exists' : 'null',
-                  choiceStructure: json.choices ? Object.keys(json.choices[0] || {}) : 'null'
-                });
-              }
-              
-              // 检测异常模式：连续空数据块
-              if (!delta && chunkCount % 100 === 0) {
-                console.warn(`⚠️ [${api.name}] 异常检测`, {
-                  chunkNumber: chunkCount,
-                  consecutiveEmptyChunks: '检测到大量空数据块',
-                  efficiency: `${((fullAnswer.length / chunkCount) * 100).toFixed(4)}%`,
-                  recommendation: '建议检查API响应格式或联系智谱技术支持'
-                });
-              }
-            }
-            
             if (delta) {
-              // 使用更安全的方式更新textarea内容，确保不会覆盖用户编辑的内容
-              const currentText = outputEl.value;
-              outputEl.value = currentText + delta;
+              outputEl.value += delta;
               fullAnswer += delta;
-              
-              // 每10个数据块记录一次性能信息
-              if (chunkCount % 10 === 0) {
-                const currentChunkTime = performance.now();
-                console.log(`📊 [${api.name}] 流式响应进度`, {
-                  chunkNumber: chunkCount,
-                  currentAnswerLength: fullAnswer.length,
-                  averageChunkSize: `${(totalBytes / chunkCount).toFixed(0)} bytes`,
-                  chunksPerSecond: `${(chunkCount / ((currentChunkTime - streamStart) / 1000)).toFixed(2)}`,
-                  timeElapsed: `${(currentChunkTime - streamStart).toFixed(2)}ms`,
-                  efficiency: `${((fullAnswer.length / chunkCount) * 100).toFixed(4)}%`
-                });
-              }
             }
           } catch (e) {
-            console.warn(`[${api.name}] 解析失败:`, part, e);
+            console.warn("解析失败:", part, e);
           }
         }
       }
@@ -2370,113 +1999,6 @@ class AskModal extends Modal {
     if (this.modalEl) {
       this.modalEl.removeEventListener("mousedown", null);
     }
-  }
-  
-  // 执行自动化模式脚本
-  executeAutoModeScript() {
-    const script = this.plugin.settings.autoModeScript || "";
-    // 首先按行分割，然后处理每一行
-    const lines = script.split('\n').map(line => line.trim()).filter(line => line.length > 0 && !line.startsWith('//'));
-    
-    // 再按分号分割，确保命令能被正确识别
-    const commands = [];
-    lines.forEach(line => {
-      const cmds = line.split(';').map(cmd => cmd.trim()).filter(cmd => cmd.length > 0);
-      // 去除命令中的括号
-      const cmdsWithoutParentheses = cmds.map(cmd => cmd.replace(/\([^)]*\)$/, '').trim());
-      commands.push(...cmdsWithoutParentheses);
-    });
-    
-    let delay = 0;
-    
-    // 遍历所有命令并添加延迟执行
-    commands.forEach((cmd, index) => {
-      // 检查是否包含sleep命令
-      const sleepMatch = cmd.match(/sleep\((\d+)\)/);
-      if (sleepMatch) {
-        const sleepTime = parseInt(sleepMatch[1]);
-        // 如果是sleep命令，直接累加延迟时间，不立即执行
-        delay += sleepTime;
-        // 继续处理下一个命令
-        return;
-      }
-      
-      delay += 100; // 每个命令之间有100ms的延迟，确保前一个命令执行完毕
-      
-      setTimeout(() => {
-        this.executeScriptCommand(cmd);
-        
-        // 如果最后一个命令不是closeModal，延迟关闭模态框
-        if (index === commands.length - 1 && !cmd.toLowerCase().includes('closemodal')) {
-          setTimeout(() => {
-            this.close();
-          }, 200);
-        }
-      }, delay);
-    });
-  }
-  
-  // 执行单个脚本命令
-  executeScriptCommand(cmd) {
-    const normalizedCmd = cmd.toLowerCase().trim();
-    
-    if (normalizedCmd.includes('自定义插入内容') || normalizedCmd.includes('insertcustomtext')) {
-      // 查找并点击自定义插入内容按钮
-      const formatRows = this.contentEl.querySelectorAll('.ask-ai-format-row');
-      formatRows.forEach(row => {
-        const buttons = row.querySelectorAll('button');
-        buttons.forEach(button => {
-          // 使用实际的按钮文本进行匹配，而不是硬编码的"自定义插入内容"
-          const customTextName = this.plugin?.settings?.customTextName || "自定义文本";
-          if (button.textContent.includes(customTextName)) {
-            button.click();
-          }
-        });
-      });
-    } 
-    else if (normalizedCmd.includes('清除格式') || normalizedCmd.includes('clearformat')) {
-      // 查找并点击清除格式按钮
-      const formatRows = this.contentEl.querySelectorAll('.ask-ai-format-row');
-      formatRows.forEach(row => {
-        const buttons = row.querySelectorAll('button');
-        buttons.forEach(button => {
-          if (button.textContent.includes('清除格式')) {
-            button.click();
-          }
-        });
-      });
-    } 
-    else if (normalizedCmd.includes('插入') || normalizedCmd.includes('insert') || normalizedCmd.includes('inserttoeditor')) {
-      // 查找并点击插入到编辑器按钮
-      const formatRows = this.contentEl.querySelectorAll('.ask-ai-format-row');
-      formatRows.forEach(row => {
-        const buttons = row.querySelectorAll('button');
-        buttons.forEach(button => {
-          // 精确匹配"插入"按钮，避免匹配到其他包含"插入"文字的按钮
-          if (button.textContent === '插入') {
-            button.click();
-          }
-        });
-      });
-    }
-    else if (normalizedCmd.includes('复制') || normalizedCmd.includes('copy')) {
-      // 查找并点击复制按钮
-      const formatRows = this.contentEl.querySelectorAll('.ask-ai-format-row');
-      formatRows.forEach(row => {
-        const buttons = row.querySelectorAll('button');
-        buttons.forEach(button => {
-          if (button.textContent.includes('复制')) {
-            button.click();
-          }
-        });
-      });
-    }
-    else if (normalizedCmd.includes('关闭') || normalizedCmd.includes('closemodal')) {
-      // 关闭模态框
-      this.close();
-    }
-    
-    // 可以添加更多命令支持...
   }
 }
 
@@ -2765,7 +2287,7 @@ class AskAiSettingTab extends PluginSettingTab {
     shortcutRowContainer.style.padding = "8px 0";
     
     // 标题
-    shortcutRowContainer.createEl("div", { text: "中键点击悬浮球执行按键:", cls: "setting-item-name" });
+    shortcutRowContainer.createEl("div", { text: "中键点击快捷键:", cls: "setting-item-name" });
     
     // 创建修饰键开关函数
     const createModifierToggle = (name, settingKey) => {
@@ -2834,7 +2356,7 @@ class AskAiSettingTab extends PluginSettingTab {
     customShortcutRowContainer.style.padding = "8px 0";
     
     // 标题
-    customShortcutRowContainer.createEl("div", { text: "悬浮球二级选项快捷键名称:", cls: "setting-item-name" });
+    customShortcutRowContainer.createEl("div", { text: "快捷键名称:", cls: "setting-item-name" });
     
     // 名称输入框
     const customNameInput = customShortcutRowContainer.createEl("input", { type: "text", value: this.plugin.settings.customShortcutName || "自定义快捷键" });
@@ -2912,7 +2434,7 @@ class AskAiSettingTab extends PluginSettingTab {
     
     // 自定义文本名称设置
     new Setting(containerEl)
-      .setName("弹窗中插入自定义文本按钮名称")
+      .setName("按钮显示文本")
       .setDesc("设置插入自定义文本按钮的显示名称")
       .addText(text => {
         text.setValue(this.plugin.settings.customTextName || "自定义文本");
@@ -2930,8 +2452,7 @@ class AskAiSettingTab extends PluginSettingTab {
       cls: "setting-item-name"
     });
     customTextContainer.createEl("div", {
-      text: "设置点击按钮时插入的文本内容，{{selection}} 为选中的文本 {{modelname}}为当前模型名称。",
-
+      text: "设置点击按钮时插入的文本内容，可使用 {{selection}} 代表选中的文本",
       cls: "setting-item-description"
     });
     const customTextTextarea = customTextContainer.createEl("textarea");
@@ -2952,224 +2473,64 @@ class AskAiSettingTab extends PluginSettingTab {
       await this.plugin.saveSettings();
     });
 
-    // 自动化模式设置
-    containerEl.createEl("h3", { text: "🤖 自动化" });
-    const autoModeContainer = containerEl.createDiv();
-    autoModeContainer.style.marginBottom = "20px";
-    
-    // 快捷键设置
-    const autoModeShortcutRow = autoModeContainer.createDiv("setting-item");
-    autoModeShortcutRow.style.display = "flex";
-    autoModeShortcutRow.style.alignItems = "center";
-    autoModeShortcutRow.style.gap = "12px";
-    autoModeShortcutRow.style.padding = "8px 0";
-    
-    autoModeShortcutRow.createEl("div", {
-      text: "自动化快捷键:",
-      cls: "setting-item-name"
-    });
-    
-    // 修饰键
-    const autoModeModifiers = autoModeShortcutRow.createDiv();
-    autoModeModifiers.style.display = "flex";
-    autoModeModifiers.style.gap = "8px";
-    autoModeModifiers.style.alignItems = "center";
-    
-    const autoModeAlt = autoModeModifiers.createEl("label", {
-      text: "Alt"
-    });
-    autoModeAlt.style.display = "flex";
-    autoModeAlt.style.alignItems = "center";
-    autoModeAlt.style.gap = "4px";
-    autoModeAlt.style.cursor = "pointer";
-    
-    const autoModeAltCheckbox = autoModeAlt.createEl("input");
-    autoModeAltCheckbox.type = "checkbox";
-    autoModeAltCheckbox.checked = this.plugin.settings.autoModeShortcutAlt || false;
-    autoModeAltCheckbox.onchange = async (e) => {
-      this.plugin.settings.autoModeShortcutAlt = e.target.checked;
-      await this.plugin.saveSettings();
-    };
-    
-    const autoModeCtrl = autoModeModifiers.createEl("label", {
-      text: "Ctrl"
-    });
-    autoModeCtrl.style.display = "flex";
-    autoModeCtrl.style.alignItems = "center";
-    autoModeCtrl.style.gap = "4px";
-    autoModeCtrl.style.cursor = "pointer";
-    
-    const autoModeCtrlCheckbox = autoModeCtrl.createEl("input");
-    autoModeCtrlCheckbox.type = "checkbox";
-    autoModeCtrlCheckbox.checked = this.plugin.settings.autoModeShortcutCtrl || false;
-    autoModeCtrlCheckbox.onchange = async (e) => {
-      this.plugin.settings.autoModeShortcutCtrl = e.target.checked;
-      await this.plugin.saveSettings();
-    };
-    
-    const autoModeShift = autoModeModifiers.createEl("label", {
-      text: "Shift"
-    });
-    autoModeShift.style.display = "flex";
-    autoModeShift.style.alignItems = "center";
-    autoModeShift.style.gap = "4px";
-    autoModeShift.style.cursor = "pointer";
-    
-    const autoModeShiftCheckbox = autoModeShift.createEl("input");
-    autoModeShiftCheckbox.type = "checkbox";
-    autoModeShiftCheckbox.checked = this.plugin.settings.autoModeShortcutShift || false;
-    autoModeShiftCheckbox.onchange = async (e) => {
-      this.plugin.settings.autoModeShortcutShift = e.target.checked;
-      await this.plugin.saveSettings();
-    };
-    
-    const autoModeMeta = autoModeModifiers.createEl("label", {
-      text: "Meta"
-    });
-    autoModeMeta.style.display = "flex";
-    autoModeMeta.style.alignItems = "center";
-    autoModeMeta.style.gap = "4px";
-    autoModeMeta.style.cursor = "pointer";
-    
-    const autoModeMetaCheckbox = autoModeMeta.createEl("input");
-    autoModeMetaCheckbox.type = "checkbox";
-    autoModeMetaCheckbox.checked = this.plugin.settings.autoModeShortcutMeta || false;
-    autoModeMetaCheckbox.onchange = async (e) => {
-      this.plugin.settings.autoModeShortcutMeta = e.target.checked;
-      await this.plugin.saveSettings();
-    };
-    
-    // 快捷键捕获
-    const autoModeKeyCapture = autoModeShortcutRow.createEl("button");
-    autoModeKeyCapture.className = "mod-cta";
-    autoModeKeyCapture.textContent = this.plugin.settings.autoModeShortcutKey || "未设置";
-    autoModeKeyCapture.style.minWidth = "80px";
-    autoModeKeyCapture.onclick = () => {
-      autoModeKeyCapture.classList.add("is-capturing");
-      autoModeKeyCapture.textContent = "按任意键";
-      
-      const captureKey = (e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        
-        this.plugin.settings.autoModeShortcutKey = e.key;
-        autoModeKeyCapture.textContent = e.key.toUpperCase();
-        autoModeKeyCapture.classList.remove("is-capturing");
-        
-        document.removeEventListener("keydown", captureKey);
-        this.plugin.saveSettings();
-      };
-      
-      document.addEventListener("keydown", captureKey, { once: true });
-    };
-    
-    // 脚本设置
-    const scriptContainer = autoModeContainer.createDiv();
-    scriptContainer.style.marginTop = "16px";
-    scriptContainer.createEl("div", {
-      text: "自动化脚本:",
-      cls: "setting-item-name"
-    });
-    scriptContainer.createEl("div", {
-      text: "配置AI回复完成后要执行的操作序列，支持: sleep(ms)、insertCustomText()、clearFormat()、copy()、insertToEditor()、closeModal()",
-      cls: "setting-item-description"
-    });
-    
-    const scriptTextarea = scriptContainer.createEl("textarea");
-    scriptTextarea.value = this.plugin.settings.autoModeScript || "// 自动化脚本示例\nsleep(1000)\ninsertCustomText()\nclearFormat()\n// insertToEditor()  // 将AI回复插入到编辑器中\n// copy()\ncloseModal()";
-    scriptTextarea.style.width = "100%";
-    scriptTextarea.style.minHeight = "120px";
-    scriptTextarea.style.marginTop = "8px";
-    scriptTextarea.style.padding = "8px";
-    scriptTextarea.style.borderRadius = "4px";
-    scriptTextarea.style.border = "1px solid var(--background-modifier-border)";
-    scriptTextarea.style.backgroundColor = "var(--background-secondary)";
-    scriptTextarea.style.color = "var(--text-normal)";
-    scriptTextarea.style.fontFamily = "var(--font-mono)";
-    scriptTextarea.style.resize = "vertical";
-    
-    scriptTextarea.addEventListener("change", async (e) => {
-      this.plugin.settings.autoModeScript = e.target.value;
-      await this.plugin.saveSettings();
-    });
-
-    // API 设置部分 - 压缩布局
-    const apiSection = containerEl.createDiv("ask-ai-api-section");
-    apiSection.createEl("h3", { text: "🔗 API 配置" });
-    
-    // 每个 API 用紧凑的卡片包装
+    // 每个 API 用卡片包装
     this.plugin.settings.apis.forEach((api, index) => {
-      const card = apiSection.createDiv("ask-ai-card compact");
+      const card = containerEl.createDiv("ask-ai-card");
       if (index === this.plugin.settings.defaultApiIndex) {
         card.addClass("is-default");
       }
-      
-      // 标题行
-      const titleRow = card.createDiv("ask-ai-card-header");
-      const title = titleRow.createEl("h4", {
+      card.createEl("h3", {
         text: api.name || `API ${index + 1}`,
         cls: "ask-ai-card-title",
       });
-      
-      // 紧凑的表单布局 - 一行显示四个字段
-      const formRow = card.createDiv("ask-ai-form-row");
-      
-      // 名称字段
-      const nameGroup = formRow.createDiv("ask-ai-field-group");
-      const nameLabel = nameGroup.createEl("label", { text: "名称", cls: "ask-ai-field-label" });
-      nameLabel.style.marginBottom = "2px";
-      const nameInput = nameGroup.createEl("input", { type: "text" });
-      nameInput.placeholder = "名称";
-      nameInput.value = api.name || "";
-      nameInput.className = "ask-ai-field-input";
-      nameInput.addEventListener("change", async (value) => {
-        api.name = value.target.value;
-        await this.plugin.saveSettings();
-        this.display();
-      });
-      
-      // 地址字段
-      const urlGroup = formRow.createDiv("ask-ai-field-group");
-      const urlLabel = urlGroup.createEl("label", { text: "地址", cls: "ask-ai-field-label" });
-      urlLabel.style.marginBottom = "2px";
-      const urlInput = urlGroup.createEl("input", { type: "text" });
-      urlInput.placeholder = "地址";
-      urlInput.value = api.url || "";
-      urlInput.className = "ask-ai-field-input";
-      urlInput.addEventListener("change", async (value) => {
-        api.url = value.target.value;
-        await this.plugin.saveSettings();
-      });
-      
-      // 密钥字段
-      const keyGroup = formRow.createDiv("ask-ai-field-group");
-      const keyLabel = keyGroup.createEl("label", { text: "密钥", cls: "ask-ai-field-label" });
-      keyLabel.style.marginBottom = "2px";
-      const keyInput = keyGroup.createEl("input", { type: "password" });
-      keyInput.placeholder = "密钥";
-      keyInput.value = api.key || "";
-      keyInput.className = "ask-ai-field-input";
-      keyInput.addEventListener("change", async (value) => {
-        api.key = value.target.value;
-        await this.plugin.saveSettings();
-      });
-      
-      // 模型字段
-      const modelGroup = formRow.createDiv("ask-ai-field-group");
-      const modelLabel = modelGroup.createEl("label", { text: "模型", cls: "ask-ai-field-label" });
-      modelLabel.style.marginBottom = "2px";
-      const modelInput = modelGroup.createEl("input", { type: "text" });
-      modelInput.placeholder = "模型";
-      modelInput.value = api.model || "";
-      modelInput.className = "ask-ai-field-input";
-      modelInput.addEventListener("change", async (value) => {
-        api.model = value.target.value;
-        await this.plugin.saveSettings();
-      });
-      
-      // 紧凑的按钮行
-      const buttonRow = card.createDiv("ask-ai-buttons compact");
-      const defaultBtn = buttonRow.createEl("button", { text: "默认" });
+      new Setting(card)
+        .setName("名称")
+        .addText((text) =>
+          text
+            .setPlaceholder("API 名称 (比如 Moonshot)")
+            .setValue(api.name || "")
+            .onChange(async (value) => {
+              api.name = value;
+              await this.plugin.saveSettings();
+              this.display();
+            })
+        );
+      new Setting(card)
+        .setName("地址")
+        .addText((text) =>
+          text
+            .setPlaceholder("API 地址 (https://...)")
+            .setValue(api.url || "")
+            .onChange(async (value) => {
+              api.url = value;
+              await this.plugin.saveSettings();
+            })
+        );
+      new Setting(card)
+        .setName("密钥")
+        .addText((text) =>
+          text
+            .setPlaceholder("API Key (sk-xxx)")
+            .setValue(api.key || "")
+            .onChange(async (value) => {
+              api.key = value;
+              await this.plugin.saveSettings();
+            })
+        );
+      new Setting(card)
+        .setName("模型")
+        .addText((text) =>
+          text
+            .setPlaceholder("模型 (可选)")
+            .setValue(api.model || "")
+            .onChange(async (value) => {
+              api.model = value;
+              await this.plugin.saveSettings();
+            })
+        );
+      // 操作按钮行
+      const buttonRow = card.createDiv("ask-ai-buttons");
+      const defaultBtn = buttonRow.createEl("button", { text: "设为默认" });
       defaultBtn.className = "mod-cta";
       defaultBtn.onclick = async () => {
         this.plugin.settings.defaultApiIndex = index;

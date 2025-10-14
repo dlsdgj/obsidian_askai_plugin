@@ -1,0 +1,83 @@
+.ask-ai-btn {
+  background: #3b82f6;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  padding: 2px 6px;
+  cursor: pointer;
+  font-size: 14px;
+}
+
+.ask-ai-btn:hover {
+  background: #2563eb;
+}
+
+/* 强制覆盖 Obsidian 默认的禁止选择 */
+
+
+.ask-ai-modal {
+  user-select: text !important;
+}
+.ask-ai-modal * {
+  user-select: text !important;
+}
+
+/* 每个 API 卡片 */
+.ask-ai-card {
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 8px;
+  padding: 12px;
+  margin-bottom: 16px;
+  background: var(--background-secondary);
+}
+
+.ask-ai-card.is-default {
+  border-color: var(--interactive-accent);
+  box-shadow: 0 0 6px var(--interactive-accent);
+}
+
+.ask-ai-card-title {
+  margin-bottom: 8px;
+  font-size: 1.1em;
+  color: var(--text-normal);
+}
+
+/* 按钮行 */
+.ask-ai-buttons {
+  display: flex;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.ask-ai-buttons button {
+  flex: 1;
+  padding: 6px 10px;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+/* 添加按钮居中 */
+.ask-ai-add-row {
+  display: flex;
+  justify-content: center;
+  margin-top: 20px;
+}
+
+/* 快捷键捕获按钮样式 */
+.is-capturing {
+  animation: pulse 1s infinite;
+  background-color: var(--interactive-success) !important;
+  color: white !important;
+}
+
+@keyframes pulse {
+  0% {
+    box-shadow: 0 0 0 0 rgba(114, 137, 218, 0.7);
+  }
+  70% {
+    box-shadow: 0 0 0 8px rgba(114, 137, 218, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(114, 137, 218, 0);
+  }
+}

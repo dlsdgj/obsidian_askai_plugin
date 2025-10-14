@@ -11,41 +11,17 @@
       "url": "https://api.deepseek.com/v1/chat/completions",
       "key": "sk-15f046fde74249afa6fec752fdd0c38d",
       "model": "deepseek-chat"
-    },
-    {
-      "name": "智谱",
-      "url": "https://open.bigmodel.cn/api/paas/v4/chat/completions",
-      "key": "68ded2d3209f48b8b66595e54206f8ae.aWTerfKMN7Fqvhxu",
-      "model": "GLM-4.6"
-    },
-    {
-      "name": "DeepSeek-V3",
-      "url": "https://api.siliconflow.cn/v1/chat/completions",
-      "key": "sk-dmrwmcyyyudhgdnxuwsczxyrlbkbbwzhjnugmeturoftglwi",
-      "model": "deepseek-ai/DeepSeek-V3"
-    },
-    {
-      "name": "MiniMaxAI",
-      "url": "https://api.siliconflow.cn/v1/chat/completions",
-      "key": "sk-dmrwmcyyyudhgdnxuwsczxyrlbkbbwzhjnugmeturoftglwi",
-      "model": "MiniMaxAI/MiniMax-M1-80k"
-    },
-    {
-      "name": "FunAudioLLM",
-      "url": "https://api.siliconflow.cn/v1/audio/speech",
-      "key": "sk-dmrwmcyyyudhgdnxuwsczxyrlbkbbwzhjnugmeturoftglwi",
-      "model": "FunAudioLLM/CosyVoice2-0.5B"
     }
   ],
-  "defaultApiIndex": 3,
+  "defaultApiIndex": 1,
   "promptTemplates": [
     {
       "name": "请根据selection，按如下要求执行：",
       "template": "请根据selection，按如下要求执行：\nselection:{{selection}}\n\n上下文：{{context}}\n\n要求：\n- 如果\"selection\"是英文单词则**仅翻译并给出其词源, 忽略其他要求**\n- 如果\"selection\"是一段英文，请分别给出直译和接地气的中文翻译,并解释其中关键词句；\n- 如果\"selection\"是中文词句段落，用大白话解释其含义；\n- 如有上下文，请结合上下文进行说明, \n**翻译仅限英文及selection内容**。\n- 用自然语言, 连贯地输出我要的答案, 不要说明.\n\n\n"
     },
     {
-      "name": "用接地气的话翻译(忽略html标签, 添加 ## 标题, 每段开头添加符号\">\", 标题也添加\">\", 形如:>## 标题, 标题应反映翻译内容. 忠于原文, **不要省略原文** 并保持行文流畅、难词稍作解释), **不要**添加翻译或译文说明: ",
-      "template": "用接地气的话翻译(忽略html标签, 添加 ## 标题, 每段开头添加符号\">\", 标题也添加\">\", 形如:>## 标题, 标题应反映翻译内容. 忠于原文, **不要省略原文** 并保持行文流畅、难词稍作解释), **不要**添加翻译或译文说明: "
+      "name": "用接地气的话翻译下文: ",
+      "template": "用接地气的话翻译下文: "
     },
     {
       "name": "用接地气的话转述下文: ",
@@ -56,31 +32,16 @@
       "template": "将下文分段、排版, 并纠正错别字, 完整输出:\n"
     }
   ],
-  "defaultPromptIndex": 1,
+  "defaultPromptIndex": 0,
   "defaultFontFamily": "Microsoft YaHei",
   "floatingButtonPinned": true,
-  "floatingButtonX": 274,
-  "floatingButtonY": 386,
+  "floatingButtonX": 396,
+  "floatingButtonY": 319,
   "middleClickShortcutKey": "c",
   "middleClickShortcutAlt": true,
   "middleClickShortcutCtrl": false,
   "middleClickShortcutShift": false,
   "middleClickShortcutMeta": false,
-  "customShortcutName": "添加地理位置链接",
-  "customShortcutKey": "m",
-  "customShortcutAlt": false,
-  "customShortcutCtrl": true,
-  "customShortcutShift": true,
-  "customShortcutMeta": true,
-  "customTextName": "接地气",
-  "customTextContent": "> [!success] 接地气翻译({{modelname}})\n",
-  "autoModeEnabled": true,
-  "autoModeShortcutKey": "g",
-  "autoModeShortcutAlt": true,
-  "autoModeShortcutCtrl": true,
-  "autoModeShortcutShift": false,
-  "autoModeShortcutMeta": false,
-  "autoModeScript": "// 自动化模式脚本示例\n//sleep(500)\ninsertCustomText()\n//sleep(500)\nclearFormat()\nsleep(500)\n //copy()\ninsertToEditor()\nsleep(500)\ncloseModal()",
   "promptTemplate": "请根据selection，按如下要求执行：selection:{{selection}}\n\n要求：\n- 如果\"selection\"是英文单词则**仅翻译并给出其词源, 忽略其他要求**\n- 如果\"selection\"是一段英文，请分别给出直译和接地气的中文翻译,并解释其中关键词句；\n- 如果\"selection\"是中文词句段落，用大白话解释其含义；\n- 如有上下文，请结合上下文进行说明, \n**翻译仅限selection内容**。\n\n上下文：{{context}}",
   "apiKey": "sk-CNOzQ5qxWhDTk1F93pUFnHyzgIsCDrxzBEcRFQkRrPxW4msk",
   "model": "moonshot-v1-32k",
