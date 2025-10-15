@@ -31,6 +31,12 @@
   background: var(--background-secondary);
 }
 
+/* 紧凑型 API 卡片 */
+.ask-ai-card.compact {
+  padding: 8px;
+  margin-bottom: 12px;
+}
+
 .ask-ai-card.is-default {
   border-color: var(--interactive-accent);
   box-shadow: 0 0 6px var(--interactive-accent);
@@ -42,6 +48,80 @@
   color: var(--text-normal);
 }
 
+.ask-ai-card.compact .ask-ai-card-title {
+  margin: 0 0 6px 0;
+  font-size: 1em;
+  font-weight: 600;
+}
+
+/* 卡片头部 */
+.ask-ai-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.ask-ai-card.compact .ask-ai-card-header {
+  margin-bottom: 6px;
+}
+
+/* 表单行 */
+.ask-ai-form-row {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.ask-ai-card.compact .ask-ai-form-row {
+  gap: 6px;
+  margin-bottom: 6px;
+}
+
+/* 字段组 */
+.ask-ai-field-group {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.ask-ai-field-label {
+  font-size: 0.7em;
+  color: var(--text-muted);
+  font-weight: 500;
+  margin-bottom: 1px;
+}
+
+.ask-ai-field-input {
+  padding: 3px 5px;
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 3px;
+  background: var(--background-primary);
+  color: var(--text-normal);
+  font-size: 0.85em;
+}
+
+.ask-ai-field-input:focus {
+  outline: 1px solid var(--interactive-accent);
+  border-color: var(--interactive-accent);
+}
+
+/* 响应式设计 - 在小屏幕上调整为单列 */
+@media (max-width: 768px) {
+  .ask-ai-form-row {
+    grid-template-columns: 1fr;
+    gap: 6px;
+  }
+}
+
+@media (max-width: 1024px) {
+  .ask-ai-form-row {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 6px;
+  }
+}
+
 /* 按钮行 */
 .ask-ai-buttons {
   display: flex;
@@ -49,11 +129,21 @@
   margin-top: 10px;
 }
 
+.ask-ai-buttons.compact {
+  gap: 6px;
+  margin-top: 6px;
+}
+
 .ask-ai-buttons button {
   flex: 1;
   padding: 6px 10px;
   border-radius: 6px;
   cursor: pointer;
+}
+
+.ask-ai-buttons.compact button {
+  padding: 4px 8px;
+  font-size: 0.85em;
 }
 
 /* 添加按钮居中 */
