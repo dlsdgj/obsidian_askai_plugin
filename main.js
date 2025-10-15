@@ -292,7 +292,7 @@ module.exports = class AskAiPlugin extends Plugin {
         autoModeShortcutCtrl: true,
         autoModeShortcutShift: true,
         autoModeShortcutMeta: false,
-        autoModeScript: "// 自动化脚本示例\nsleep(1000)\ninsertCustomText()\nclearFormat()\n// copy()\ncloseModal()"
+        autoModeScript: "// 自动化脚本示例\ninsertCustomText()\nclearFormat()\n// copy()\ncloseModal()"
       },
       await this.loadData()
     );
@@ -2339,13 +2339,16 @@ class AskModal extends Modal {
             }
             
             if (delta) {
-              // 使用更安全的方式更新textarea内容，确保不会覆盖用户编辑的内容
-              const currentText = outputEl.value;
-              outputEl.value = currentText + delta;
-              fullAnswer += delta;
-              
-              // 每10个数据块记录一次性能信息
-              if (chunkCount % 10 === 0) {
+                // 使用更安全的方式更新textarea内容，确保不会覆盖用户编辑的内容
+                const currentText = outputEl.value;
+                outputEl.value = currentText + delta;
+                fullAnswer += delta;
+                
+                // 每次更新内容后自动滚动到底部，无需用户手动滑动
+                outputEl.scrollTop = outputEl.scrollHeight;
+                
+                // 每10个数据块记录一次性能信息
+                if (chunkCount % 10 === 0) {
                 const currentChunkTime = performance.now();
                 console.log(`📊 [${api.name}] 流式响应进度`, {
                   chunkNumber: chunkCount,
@@ -2382,38 +2385,83 @@ class AskModal extends Modal {
     const commands = [];
     lines.forEach(line => {
       const cmds = line.split(';').map(cmd => cmd.trim()).filter(cmd => cmd.length > 0);
-      // 去除命令中的括号
-      const cmdsWithoutParentheses = cmds.map(cmd => cmd.replace(/\([^)]*\)$/, '').trim());
+      // 只移除sleep命令的括号，保留其他命令的括号
+      const cmdsWithoutParentheses = cmds.map(cmd => {
+        if (cmd.toLowerCase().startsWith('sleep')) {
+          return cmd.replace(/\([^)]*\)$/, '').trim();
+        }
+        return cmd;
+      });
       commands.push(...cmdsWithoutParentheses);
     });
     
     let delay = 0;
     
+    // 检查是否有明确的closeModal命令（只检查未注释的命令）
+    const hasCloseModalCommand = commands.some(cmd => 
+      cmd.toLowerCase().includes('closemodal') || cmd.toLowerCase().includes('关闭')
+    );
+    
+    // 调试信息
+    console.log('自动化脚本执行:', {
+      originalScript: script,
+      filteredLines: lines,
+      commands: commands,
+      hasCloseModalCommand: hasCloseModalCommand
+    });
+    
     // 遍历所有命令并添加延迟执行
     commands.forEach((cmd, index) => {
-      // 检查是否包含sleep命令
-      const sleepMatch = cmd.match(/sleep\((\d+)\)/);
-      if (sleepMatch) {
-        const sleepTime = parseInt(sleepMatch[1]);
-        // 如果是sleep命令，直接累加延迟时间，不立即执行
-        delay += sleepTime;
-        // 继续处理下一个命令
-        return;
-      }
-      
       delay += 100; // 每个命令之间有100ms的延迟，确保前一个命令执行完毕
       
       setTimeout(() => {
+        console.log(`执行命令 [${index}/${commands.length}]:`, cmd);
+        
+        // 特殊处理：如果是closeModal命令，延迟到最后执行
+        if (cmd.toLowerCase().includes('closemodal') || cmd.toLowerCase().includes('关闭')) {
+          console.log('检测到closeModal命令，将延迟到最后执行');
+          // 不立即执行closeModal，等待所有其他命令完成后再执行
+          return;
+        }
+        
+        // 特殊处理：如果是pressKey命令且存在closeModal命令，延迟到模态框关闭后执行
+        if (cmd.toLowerCase().includes('presskey') && hasCloseModalCommand) {
+          console.log('检测到pressKey命令且存在closeModal，将延迟到模态框关闭后执行');
+          // 不立即执行pressKey，等待模态框关闭后再执行
+          return;
+        }
+        
         this.executeScriptCommand(cmd);
         
-        // 如果最后一个命令不是closeModal，延迟关闭模态框
-        if (index === commands.length - 1 && !cmd.toLowerCase().includes('closemodal')) {
+        // 如果是最后一个命令且没有closeModal命令，自动关闭
+        if (index === commands.length - 1 && !hasCloseModalCommand) {
+          console.log('没有closeModal命令，将在1秒后自动关闭模态框');
           setTimeout(() => {
             this.close();
-          }, 200);
+          }, 1000);
         }
       }, delay);
     });
+    
+    // 如果有closeModal命令，在所有其他命令执行完毕后执行
+    if (hasCloseModalCommand) {
+      // 计算所有命令执行完毕的时间，再加上额外延迟
+      setTimeout(() => {
+        console.log('所有命令执行完毕，现在关闭模态框');
+        this.close();
+        
+        // 关闭模态框后，延迟执行pressKey命令
+        setTimeout(() => {
+          // 查找所有pressKey命令并在模态框关闭后执行
+          commands.forEach((cmd, index) => {
+            if (cmd.toLowerCase().includes('presskey')) {
+              console.log(`模态框关闭后执行pressKey命令 [${index}]:`, cmd);
+              this.executeScriptCommand(cmd);
+            }
+          });
+        }, 300); // 模态框关闭后300ms执行pressKey
+      }, delay + 500); // 额外500ms延迟确保最后一个命令完全执行完毕
+    }
   }
   
   // 执行单个脚本命令
@@ -2475,8 +2523,95 @@ class AskModal extends Modal {
       // 关闭模态框
       this.close();
     }
+    // 新增：模拟键盘快捷键命令
+    else if (normalizedCmd.includes('presskey')) {
+      try {
+        console.log('尝试解析pressKey命令:', cmd);
+        
+        // 解析命令参数，格式：pressKey(key, alt?, ctrl?, shift?, meta?)
+        // 修复：使用原始命令而不是规范化后的命令进行匹配
+        const paramMatch = cmd.match(/presskey\(([^)]+)\)/i);
+        if (paramMatch && paramMatch[1]) {
+          console.log('pressKey参数匹配成功:', paramMatch[1]);
+          const params = paramMatch[1].split(',').map(p => p.trim());
+          console.log('解析的参数:', params);
+          
+          const key = params[0].replace(/['"]/g, ''); // 移除引号
+          const alt = params.length > 1 ? params[1].toLowerCase() === 'true' : false;
+          const ctrl = params.length > 2 ? params[2].toLowerCase() === 'true' : false;
+          const shift = params.length > 3 ? params[3].toLowerCase() === 'true' : false;
+          const meta = params.length > 4 ? params[4].toLowerCase() === 'true' : false;
+          
+          console.log('模拟键盘事件:', { key, alt, ctrl, shift, meta });
+          
+          // 模拟键盘事件
+          this.simulateKeyboardEvent(key, alt, ctrl, shift, meta);
+        } else {
+          console.warn('pressKey参数匹配失败，命令格式不正确:', cmd);
+        }
+      } catch (error) {
+        console.error('执行pressKey命令失败:', error);
+      }
+    }
     
     // 可以添加更多命令支持...
+  }
+  
+  // 模拟键盘事件的辅助方法
+  simulateKeyboardEvent(key, altKey, ctrlKey, shiftKey, metaKey) {
+    try {
+      // 创建键盘事件配置
+      const eventConfig = {
+        key: key,
+        code: key.length === 1 && /[a-zA-Z]/.test(key) ? 'Key' + key.toUpperCase() : 
+              key.length === 1 && /[0-9]/.test(key) ? 'Digit' + key : key,
+        altKey: altKey,
+        ctrlKey: ctrlKey,
+        shiftKey: shiftKey,
+        metaKey: metaKey,
+        bubbles: true,
+        cancelable: true,
+        composed: true,
+        view: window,
+        repeat: false,
+        isComposing: false
+      };
+      
+      // 只向当前活动元素分发事件，避免多次执行
+      const target = document.activeElement || document.body;
+      
+      // 保存当前文本选择状态
+      let selection = window.getSelection();
+      let selectionRange = null;
+      if (selection && !selection.isCollapsed) {
+        selectionRange = selection.getRangeAt(0);
+      }
+      
+      // 模拟按键过程：keydown -> keyup
+      setTimeout(() => {
+        try {
+          // 分发keydown事件
+          const keydownEvent = new KeyboardEvent('keydown', eventConfig);
+          target.dispatchEvent(keydownEvent);
+          
+          // 添加小延迟后分发keyup事件
+          setTimeout(() => {
+            try {
+              const keyupEvent = new KeyboardEvent('keyup', eventConfig);
+              target.dispatchEvent(keyupEvent);
+            } catch (e) {
+              console.error('分发keyup事件失败:', e);
+            }
+          }, 10);
+        } catch (eventError) {
+          console.error('模拟键盘事件失败:', eventError);
+        }
+      }, 5);
+      
+      console.log(`模拟键盘快捷键: ${altKey ? 'Alt+' : ''}${ctrlKey ? 'Ctrl+' : ''}${shiftKey ? 'Shift+' : ''}${metaKey ? 'Meta+' : ''}${key}`);
+    } catch (error) {
+      console.error('模拟键盘事件时发生错误:', error);
+    }
   }
 }
 
@@ -2539,7 +2674,7 @@ class AskAiSettingTab extends PluginSettingTab {
     // 标题
     containerEl.createEl("h2", { text: "⚙️ Ask AI 设置" });
     containerEl.createEl("p", {
-      text: "在这里配置多个 API，并选择一个默认 API 用于请求。",
+     // text: "在这里配置多个 API，并选择一个默认 API 用于请求。",
       cls: "setting-item-description",
     });
 
@@ -3071,12 +3206,17 @@ class AskAiSettingTab extends PluginSettingTab {
       cls: "setting-item-name"
     });
     scriptContainer.createEl("div", {
-      text: "配置AI回复完成后要执行的操作序列，支持: sleep(ms)、insertCustomText()、clearFormat()、copy()、insertToEditor()、closeModal()",
+      text: "配置AI回复完成后要执行的操作序列，支持: insertCustomText()、clearFormat()、copy()、insertToEditor()、closeModal()、pressKey(key,alt?,ctrl?,shift?,meta?)",
+      cls: "setting-item-description"
+    });
+    
+    scriptContainer.createEl("div", {
+      text: "pressKey命令格式: pressKey('key', altKey, ctrlKey, shiftKey, metaKey) - 模拟键盘快捷键，例如 pressKey('s', true, true) 表示Alt+Ctrl+S",
       cls: "setting-item-description"
     });
     
     const scriptTextarea = scriptContainer.createEl("textarea");
-    scriptTextarea.value = this.plugin.settings.autoModeScript || "// 自动化脚本示例\nsleep(1000)\ninsertCustomText()\nclearFormat()\n// insertToEditor()  // 将AI回复插入到编辑器中\n// copy()\ncloseModal()";
+    scriptTextarea.value = this.plugin.settings.autoModeScript || "// 自动化脚本示例\ninsertCustomText()\nclearFormat()\n// insertToEditor()  // 将AI回复插入到编辑器中\n// copy()\n// pressKey('s', true, true)  // 模拟按下Alt+Ctrl+S快捷键\ncloseModal()";
     scriptTextarea.style.width = "100%";
     scriptTextarea.style.minHeight = "120px";
     scriptTextarea.style.marginTop = "8px";
