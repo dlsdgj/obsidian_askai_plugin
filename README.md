@@ -14,9 +14,8 @@
 
 ## 安装方法
 或者通过手动安装：
-1. 下载最新的发布版本
-2. 解压到 Obsidian 的插件目录（`.obsidian/plugins/`）
-3. 重启 Obsidian 并在设置中启用插件
+1. 下载manifest.json 和 main.js 、styles.css文件到 Obsidian 的插件目录（`.obsidian/plugins/askai`）
+2. 重启 Obsidian 并在设置中启用插件
 
 ## 使用方法
 1. 选中文本并点击悬浮按钮
