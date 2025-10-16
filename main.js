@@ -217,7 +217,9 @@ module.exports = class AskAiPlugin extends Plugin {
                 if (api) {
                   // 执行默认模板或者用户设置的模板
                   const promptTemplate = this.settings.promptTemplates[this.settings.defaultPromptIndex]?.template || '';
-                  const prompt = promptTemplate.replace(/{{selection}}/g, selectedText);
+                  // 移除HTML标签
+                  const processedSelectedText = selectedText ? selectedText.replace(/<[^>]*>/g, '') : '';
+                  const prompt = promptTemplate.replace(/{{selection}}/g, processedSelectedText);
                   
                   autoModal.inputField.value = prompt;
                   autoModal.continueBtn?.click();
@@ -2164,18 +2166,22 @@ class AskModal extends Modal {
   let prompt = "";
   if (this.selectedTemplate) {
     // 使用从二级菜单选中的模板，确保使用this.query（原始选中的文字）替换变量
-    prompt = this.selectedTemplate.replace(/{{selection}}/g, this.query).replace(/{{context}}/g, context);
+    let processedQuery = this.query ? this.query.replace(/<[^>]*>/g, '') : ''; // 移除HTML标签
+    let processedContext = context ? context.replace(/<[^>]*>/g, '') : ''; // 移除HTML标签
+    prompt = this.selectedTemplate.replace(/{{selection}}/g, processedQuery).replace(/{{context}}/g, processedContext);
     // 如果模板不包含{{selection}}变量，但用户确实选中了文本，那么在模板后添加选中的文本
-    if (!this.selectedTemplate.includes('{{selection}}') && this.query) {
-      prompt += '\n' + this.query;
+    if (!this.selectedTemplate.includes('{{selection}}') && processedQuery) {
+      prompt += '\n' + processedQuery;
     }
   } else if (this.plugin.settings.promptTemplates && this.plugin.settings.promptTemplates.length > 0) {
     // 使用默认模板
     const defaultTemplate = this.plugin.settings.promptTemplates[this.plugin.settings.defaultPromptIndex || 0];
-    prompt = defaultTemplate.template.replace(/{{selection}}/g, this.query).replace(/{{context}}/g, context);
+    let processedQuery = this.query ? this.query.replace(/<[^>]*>/g, '') : ''; // 移除HTML标签
+    let processedContext = context ? context.replace(/<[^>]*>/g, '') : ''; // 移除HTML标签
+    prompt = defaultTemplate.template.replace(/{{selection}}/g, processedQuery).replace(/{{context}}/g, processedContext);
     // 如果默认模板不包含{{selection}}变量，但用户确实选中了文本，那么在模板后添加选中的文本
-    if (!defaultTemplate.template.includes('{{selection}}') && this.query) {
-      prompt += '\n' + this.query;
+    if (!defaultTemplate.template.includes('{{selection}}') && processedQuery) {
+      prompt += '\n' + processedQuery;
     }
   }
   newMessages = [...messages, { role: "user", content: prompt }];
